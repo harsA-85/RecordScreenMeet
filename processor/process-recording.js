@@ -183,7 +183,11 @@ async function sendEmail(body) {
       jsonPath,
       transcriptPath
     });
-    await sendEmail(body);
+    try {
+      await sendEmail(body);
+    } catch (err) {
+      console.warn(`Email failed (${err.code || err.name}): ${err.message}. Analysis JSON is saved at ${jsonPath}.`);
+    }
   }
 
   console.log('Done.');
