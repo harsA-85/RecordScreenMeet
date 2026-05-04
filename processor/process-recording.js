@@ -144,11 +144,18 @@ async function sendEmail(body) {
     console.warn('Email skipped: GMAIL_USER / GMAIL_APP_PASSWORD / EMAIL_TO not set.');
     return;
   }
+  // Pre-resolve via OS resolver (dns.lookup) to dodge c-ares EDNS timeouts
+  // observed inside nodemailer on some Windows networks. Connect by IP but
+  // keep TLS SNI/cert validation pinned to smtp.gmail.com.
+  const { promises: dnsp } = await import('node:dns');
+  const { address: smtpIp } = await dnsp.lookup('smtp.gmail.com', { family: 4 });
+  console.log(`SMTP host resolved -> ${smtpIp}`);
   const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
+    host: smtpIp,
     port: 465,
     secure: true,
-    auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD }
+    auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+    tls: { servername: 'smtp.gmail.com' }
   });
   await transporter.sendMail({
     from: GMAIL_USER,
