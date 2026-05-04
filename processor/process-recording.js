@@ -15,10 +15,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const args = process.argv.slice(2);
 const noEmailFlag = args.includes('--no-email');
+const forceFlag = args.includes('--force');
 const inputPath = args.find(a => !a.startsWith('--'));
 
 if (!inputPath) {
-  console.error('Usage: process-recording <path-to-recording.webm> [--no-email]');
+  console.error('Usage: process-recording <path-to-recording.webm> [--no-email] [--force]');
   process.exit(1);
 }
 if (!fs.existsSync(inputPath)) {
@@ -38,16 +39,14 @@ const {
   SEND_EMAIL = 'true'
 } = process.env;
 
-if (!OPENAI_API_KEY) { console.error('Missing OPENAI_API_KEY'); process.exit(1); }
-if (!ANTHROPIC_API_KEY) { console.error('Missing ANTHROPIC_API_KEY'); process.exit(1); }
-
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
-
 const baseName = path.basename(inputPath, path.extname(inputPath));
-const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+const transcriptPath = path.join(OUTPUT_DIR, `${baseName}.transcript.json`);
+const jsonPath = path.join(OUTPUT_DIR, `${baseName}.analysis.json`);
+
+const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
+const anthropic = ANTHROPIC_API_KEY ? new Anthropic({ apiKey: ANTHROPIC_API_KEY }) : null;
 
 async function transcribe(file) {
   const sizeMB = fs.statSync(file).size / (1024 * 1024);
@@ -155,24 +154,36 @@ async function sendEmail(body) {
 }
 
 (async () => {
-  const transcript = await transcribe(inputPath);
-  const transcriptPath = path.join(OUTPUT_DIR, `${baseName}-${stamp}.transcript.json`);
-  fs.writeFileSync(transcriptPath, JSON.stringify(transcript, null, 2));
-  console.log(`Transcript -> ${transcriptPath}`);
+  let transcript;
+  if (!forceFlag && fs.existsSync(transcriptPath)) {
+    console.log(`Transcript cache hit -> ${transcriptPath} (skipping Whisper; use --force to redo)`);
+    transcript = JSON.parse(fs.readFileSync(transcriptPath, 'utf8'));
+  } else {
+    if (!openai) { console.error('Missing OPENAI_API_KEY'); process.exit(1); }
+    transcript = await transcribe(inputPath);
+    fs.writeFileSync(transcriptPath, JSON.stringify(transcript, null, 2));
+    console.log(`Transcript -> ${transcriptPath}`);
+  }
 
-  const analysis = await analyze(transcript.text);
-
-  const result = {
-    recording: path.basename(inputPath),
-    processed_at: new Date().toISOString(),
-    duration_sec: transcript.duration,
-    language: transcript.language,
-    analysis,
-    transcript: transcript.text
-  };
-  const jsonPath = path.join(OUTPUT_DIR, `${baseName}-${stamp}.analysis.json`);
-  fs.writeFileSync(jsonPath, JSON.stringify(result, null, 2));
-  console.log(`Analysis  -> ${jsonPath}`);
+  let result;
+  if (!forceFlag && fs.existsSync(jsonPath)) {
+    console.log(`Analysis cache hit -> ${jsonPath} (skipping Claude; use --force to redo)`);
+    result = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+  } else {
+    if (!anthropic) { console.error('Missing ANTHROPIC_API_KEY'); process.exit(1); }
+    const analysis = await analyze(transcript.text);
+    result = {
+      recording: path.basename(inputPath),
+      processed_at: new Date().toISOString(),
+      duration_sec: transcript.duration,
+      language: transcript.language,
+      analysis,
+      transcript: transcript.text
+    };
+    fs.writeFileSync(jsonPath, JSON.stringify(result, null, 2));
+    console.log(`Analysis  -> ${jsonPath}`);
+  }
+  const analysis = result.analysis;
 
   const shouldEmail = !noEmailFlag && SEND_EMAIL.toLowerCase() !== 'false';
   if (shouldEmail) {
