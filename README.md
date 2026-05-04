@@ -23,16 +23,20 @@ The extension never touches API keys. All AI calls run locally from your machine
 3. Click **Load unpacked** and pick the `extension/` folder
 4. Pin the **Meeting Recorder** icon to your toolbar
 
-### Firefox (temporary install, no signing required)
+### Firefox 128+ (temporary install, no signing required)
 1. Open `about:debugging#/runtime/this-firefox`
 2. Click **Load Temporary Add-on…** and pick `extension/manifest.json`
-   (Firefox MV3 support varies — Chrome is the primary target.)
+3. The add-on stays loaded until Firefox is closed — re-load it next session.
 
 ### Recording
-1. Click the toolbar icon → choose mic / tab-audio toggles → **Start recording**
-2. The browser will ask what to share — pick **Entire Screen**, **Window**, or **Chrome Tab**
-   (to also capture meeting audio, tick "Share tab audio" / "Share system audio")
-3. Click **Stop & save** when done. The file lands in `~/Downloads/meeting-recorder/`.
+1. Click the toolbar icon — a small **Meeting Recorder** window opens.
+2. Toggle mic / system-audio as desired, then click **Pick what to share & start**.
+3. The browser shows its share picker. Pick **Entire Screen**, a **Window**, or a **Tab**.
+   To also capture meeting audio, tick **Share tab audio** (Chrome) or
+   **Share audio** (Firefox, available when sharing a tab or — on Windows/Linux —
+   a screen).
+4. Click **Stop & save** when done. The file lands in `~/Downloads/meeting-recorder/`.
+5. Keep the recorder window open during recording — closing it stops the capture.
 
 ---
 
@@ -74,8 +78,12 @@ Output lands in `processor/out/`:
   node process-recording.js output.m4a
   ```
 - **System audio capture on macOS** requires picking "Share tab audio" when the
-  share picker comes up; full-desktop audio isn't exposed by Chrome on macOS.
-  On Windows and Linux, "Share system audio" works for full-screen sharing.
+  share picker comes up; full-desktop audio isn't exposed by Chrome or Firefox
+  on macOS. On Windows and Linux, "Share system audio" works for full-screen
+  sharing in both browsers.
+- **Firefox audio quirks**: Firefox only offers the audio checkbox for tabs and
+  (Windows/Linux) screens, not for individual windows. If you need to capture a
+  Teams desktop app meeting on Firefox/macOS, use Chrome instead.
 - **Privacy**: recordings stay on your machine. Whisper + Claude API calls send
   the audio + transcript to OpenAI / Anthropic respectively.
 - **Cost** (rough): Whisper $0.006/min + Claude analysis ~$0.01-0.05 per meeting.
