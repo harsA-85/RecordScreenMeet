@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Meeting Recorder",
+  "version": "0.1.0",
+  "description": "Record screen + tab audio + mic for Meet, Teams, and other meetings.",
+  "permissions": ["activeTab", "desktopCapture", "downloads", "storage", "offscreen"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Meeting Recorder"
+  }
+}
