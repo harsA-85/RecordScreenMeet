@@ -6,10 +6,14 @@
 import 'dotenv/config';
 import fs from 'node:fs';
 import path from 'node:path';
+import dns from 'node:dns';
 import { fileURLToPath } from 'node:url';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import nodemailer from 'nodemailer';
+
+// Prefer IPv4 + OS resolver: avoids c-ares EDNS timeouts seen on some Windows networks.
+dns.setDefaultResultOrder('ipv4first');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -141,7 +145,9 @@ async function sendEmail(body) {
     return;
   }
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD }
   });
   await transporter.sendMail({
